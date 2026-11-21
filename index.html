@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Change & Contingency Tracker – free tool for project controllers</title>
+<meta name="description" content="Free browser tool: upload your change log and see contingency used, pending exposure, burn index and a plain-English summary for management.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#14213d; --ink2:#46536e; --muted:#7a859b; --line:#e3e7ef; --bg:#f5f7fb; --card:#fff;
+  --navy:#1f3864; --accent:#2f6fde; --pass:#1e8a5a; --passbg:#e6f4ec; --fail:#c8372d; --failbg:#fbe9e7; --na:#8a93a6; --nabg:#eef0f4;
+  --amber:#b86e00; --amberbg:#fdf1dc; --pend:#e0a43a; --left:#cfe3d8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:22px}
+.kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{margin:4px 0 4px;font-size:30px;line-height:1.15;letter-spacing:-.01em}
+.sub{color:var(--ink2);margin:0;max-width:660px}
+.by{font-size:13px;color:var(--muted);text-align:right}
+.by b{color:var(--ink);font-weight:600}
+.by a{color:var(--accent);text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.card h2{font-size:16px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.input{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+@media(max-width:760px){.input{grid-template-columns:1fr}}
+.drop{border:2px dashed #c7d0e0;border-radius:12px;padding:26px 18px;text-align:center;cursor:pointer;transition:.15s;background:#fafbfe}
+.drop:hover,.drop.over{border-color:var(--accent);background:#f0f5ff}
+.drop strong{display:block;font-size:16px;margin-bottom:4px}
+.drop span{color:var(--muted);font-size:13px}
+.side{display:flex;flex-direction:column;gap:10px;justify-content:center}
+button,.btnlink{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:10px 14px;font-weight:500;text-align:center;text-decoration:none}
+button.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+button.primary:hover{background:#17305a}
+button:hover,.btnlink:hover{border-color:#b9c3d6}
+button:disabled{opacity:.55;cursor:default}
+button.small{padding:5px 11px;font-size:13px}
+label.dd{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink2);border:1px solid var(--line);border-radius:9px;padding:6px 6px 6px 12px}
+label.dd input{font:inherit;border:0;background:#f3f5f9;border-radius:6px;padding:5px 8px;color:var(--ink)}
+.msg{font-size:13px;margin-top:10px;color:var(--ink2)}
+.msg.err{color:var(--fail)}
+.msg ul{margin:6px 0 0;padding-left:18px}
+details.fmt{margin-top:14px;font-size:13px;color:var(--ink2)}
+details summary{cursor:pointer;color:var(--accent);font-weight:500}
+details code{background:#f1f3f8;padding:1px 5px;border-radius:4px;font-size:12px}
+#results{display:none;margin-top:22px}
+.kpis{display:grid;grid-template-columns:1.5fr repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.kpis .stat{grid-column:1/-1}}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.kpi .v{font-size:20px;font-weight:600;margin-top:4px}
+.kpi .s{font-size:12.5px;color:var(--ink2)}
+.stat{display:flex;gap:14px;align-items:flex-start}
+.light{width:46px;height:46px;border-radius:50%;flex:none;margin-top:2px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.12)}
+.light.green{background:var(--pass)} .light.amber{background:#e09a1a} .light.red{background:var(--fail)}
+.verdict{font-weight:600;font-size:17px}
+.pill{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.pill.Approved{background:var(--passbg);color:var(--pass)}
+.pill.Pending{background:var(--amberbg);color:var(--amber)}
+.pill.Rejected{background:var(--failbg);color:var(--fail)}
+.pill.Withdrawn{background:var(--nabg);color:var(--na)}
+.pill.green{background:var(--passbg);color:var(--pass)} .pill.amber{background:var(--amberbg);color:var(--amber)} .pill.red{background:var(--failbg);color:var(--fail)}
+.summary p{margin:0 0 10px}
+.summary ul{margin:0 0 10px;padding-left:20px}
+.summary li{margin-bottom:6px}
+.summary h3{font-size:14px;margin:14px 0 6px}
+.ai{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:none}
+.ai .box{background:#f4f7ff;border:1px solid #dbe5fb;border-radius:10px;padding:14px 16px;white-space:pre-wrap}
+.tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:#eaf1ff;border-radius:999px;padding:3px 9px}
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+.grid2 .card{margin-bottom:0}
+.bar{display:flex;height:30px;border-radius:8px;overflow:hidden;background:#eef0f4;margin:4px 0 6px}
+.bar div{height:100%}
+.bar .u{background:var(--navy)} .bar .p{background:var(--pend)} .bar .r{background:var(--left)} .bar .o{background:var(--fail)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink2);margin-bottom:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right;white-space:nowrap}
+.kv td{padding:7px 4px}
+.kv td:first-child{color:var(--ink2)}
+.kv tr.tot td{font-weight:600;border-top:2px solid var(--line)}
+.kv .hint{display:block;font-size:12px;color:var(--muted)}
+.cd{font-size:12.5px;color:var(--muted)}
+.id{font-family:"IBM Plex Mono",monospace;font-weight:600;white-space:nowrap}
+.neg{color:var(--fail)}
+.flag{font-size:11.5px;color:var(--amber)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{padding:4px 11px;font-size:13px;border-radius:999px}
+.chips button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:#fff;color:var(--ink)}
+.tablewrap{overflow-x:auto}
+svg text{font-family:"IBM Plex Sans",sans-serif}
+.empty{color:var(--pass);font-size:14px}
+.how p,.how li{font-size:13.5px;color:var(--ink2)}
+.how ul{padding-left:18px}
+footer{margin-top:26px;font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #b8c6e6;border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+.yt-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.yt-links a{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;text-decoration:none;border-radius:999px;padding:8px 16px}
+.yt-links a.yt-sub{background:#ff0000;color:#fff}
+.yt-links a.yt-sub:hover{background:#d90000}
+.yt-links a.pf{background:#fff;color:#14213d;border:1px solid #d5dae3}
+.yt-links a.pf:hover{background:#f2f4f8}
+@media print{
+  body{background:#fff;font-size:12.5px}
+  .noprint,.yt-links,#inputCard,footer .noprint,details.how,#logCard .chips,#logCard select{display:none!important}
+  .card,.kpi{break-inside:avoid;border-color:#ccc}
+  .wrap{padding:0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="kicker">AI tools for project controllers and project managers</div>
+      <h1>Change &amp; Contingency Tracker</h1>
+      <p class="sub">Upload your change log and see in seconds how much contingency is used, what is still pending, whether contingency is being used faster than the project progresses, and a plain-English summary for management.</p>
+      <div class="yt-links">
+        <a class="yt-sub" href="https://www.youtube.com/@saramostafshar7216?sub_confirmation=1" target="_blank" rel="noopener">&#9654; Subscribe to my YouTube channel</a>
+        <a class="pf" href="https://sara-mostafshar.github.io" target="_blank" rel="noopener">More free tools</a>
+      </div>
+    </div>
+    <div class="by">Built by <b>Sara Mostafshar</b><br>Your file is read in your browser only</div>
+  </header>
+
+  <section class="card" id="inputCard">
+    <div class="input">
+      <div>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload Excel file">
+          <strong>Drop your change log (.xlsx) here</strong>
+          <span>or click to choose a file · sheets: Project + Changes</span>
+        </div>
+        <input type="file" id="file" accept=".xlsx,.xls,.xlsm" hidden>
+        <div class="msg" id="msg"></div>
+      </div>
+      <div class="side">
+        <button class="primary" id="sampleBtn">Try the sample project</button>
+        <button id="dlBtn" style="display:none">Download sample Excel (template)</button>
+        <a id="dlLink" class="btnlink" href="Change_Contingency_Tracker_Sample_Data.xlsx" download style="display:none">Download sample Excel (template)</a>
+        <label class="dd">Data date <input type="date" id="dd"></label>
+      </div>
+    </div>
+    <details class="fmt">
+      <summary>What should my Excel file look like?</summary>
+      <p><b>Sheet "Project"</b> (label in column A, value in column B): <code>Project Name</code>, <code>Currency</code>, <code>Data Date</code>, <code>Original Contract Value</code>, <code>Original Cost Budget</code> (without contingency and reserve), <code>Contingency Budget</code>, <code>Management Reserve</code>, <code>Percent Complete</code>. Optional: <code>Pending Older Than (days)</code>, <code>Burn Index Amber</code>, <code>Burn Index Red</code>, <code>Blank Likelihood Counts As</code>.</p>
+      <p><b>Sheet "Changes"</b> (one row per change): <code>Change ID</code>, <code>Description</code>, <code>Funding</code> (Client / Contingency / Management Reserve), <code>Status</code> (Pending / Approved / Rejected / Withdrawn), <code>Cost Impact</code>, <code>Client Price</code>, <code>Schedule Impact (days)</code>, <code>Likelihood</code>, <code>Date Raised</code>, <code>Date Decided</code>. Optional: <code>WBS</code>, <code>Owner</code>, <code>Notes</code>.</p>
+      <p>Working from SAP or another system? Export your change/claim list to Excel and rename the columns to the names above (common names such as <code>WBS Element</code>, <code>Amount</code> or <code>Probability</code> are recognised too). Dates like <code>28.8.2026</code> are read day-first; decimals with a comma (<code>0,45</code>) work.</p>
+    </details>
+  </section>
+
+  <section id="results">
+    <div class="kpis">
+      <div class="kpi stat">
+        <div class="light" id="light"></div>
+        <div><div class="l">Contingency status</div><div class="verdict" id="verdict"></div><div class="s" id="verdictSub"></div></div>
+      </div>
+      <div class="kpi"><div class="l">Contingency left today</div><div class="v mono" id="kLeft"></div><div class="s" id="kLeftS"></div></div>
+      <div class="kpi"><div class="l">Left after likely pending</div><div class="v mono" id="kFc"></div><div class="s" id="kFcS"></div></div>
+      <div class="kpi"><div class="l">Burn index</div><div class="v mono" id="kBi"></div><div class="s" id="kBiS"></div></div>
+      <div class="kpi"><div class="l">Contract value now</div><div class="v mono" id="kCv"></div><div class="s" id="kCvS"></div></div>
+    </div>
+
+    <div class="card summary">
+      <h2>Management summary
+        <span class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="small" id="aiBtn" style="display:none">✦ Write AI summary</button>
+          <button class="small" id="copyBtn">Copy summary</button>
+          <button class="small" id="printBtn">Print / Save as PDF</button>
+        </span>
+      </h2>
+      <div id="sumBody"></div>
+      <div class="ai" id="aiWrap"><span class="tag">AI summary</span><div class="box" id="aiBox" style="margin-top:8px"></div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Contingency</h2>
+        <div class="bar" id="cBar"></div>
+        <div class="legend" id="cLegend"></div>
+        <table class="kv" id="cTable"></table>
+      </div>
+      <div class="card">
+        <h2>Contingency used over time <span class="cd">approved drawdowns by date decided</span></h2>
+        <div id="chart"></div>
+        <div class="cd" id="chartNote"></div>
+      </div>
+    </div>
+    <div style="height:16px"></div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Client change orders</h2>
+        <table class="kv" id="clTable"></table>
+      </div>
+      <div class="card">
+        <h2>Management reserve &amp; schedule</h2>
+        <table class="kv" id="mrTable"></table>
+      </div>
+    </div>
+    <div style="height:16px"></div>
+
+    <div class="card">
+      <h2>Decisions needed <span class="cd" id="decSub"></span></h2>
+      <div class="tablewrap" id="decBody"></div>
+    </div>
+
+    <div class="card" id="logCard">
+      <h2>Change log
+        <span style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span class="chips" id="chips"></span>
+          <select id="fundSel" aria-label="Filter by funding"><option value="">All funding</option><option>Client</option><option>Contingency</option><option>Management Reserve</option></select>
+        </span>
+      </h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>ID</th><th>Description</th><th>Funding</th><th>Status</th><th class="r">Cost impact</th><th class="r">Client price</th><th class="r">Likelihood</th><th class="r">Days</th><th class="r">Raised</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card" id="warnCard" style="display:none">
+      <h2>Notes on your data <span class="cd">the tool made these assumptions</span></h2>
+      <ul class="msg" id="warnList" style="margin:0;padding-left:18px"></ul>
+    </div>
+
+    <details class="card how">
+      <summary>How is it calculated?</summary>
+      <ul>
+        <li><b>Contingency left today</b> = Contingency Budget − approved Contingency changes. Savings (negative cost) give money back.</li>
+        <li><b>Left after likely pending</b> = Contingency left today − (cost × likelihood) of every pending Contingency change. Empty likelihood counts at 100% by default (conservative).</li>
+        <li><b>Burn index</b> = % of contingency used ÷ % complete. 1.00× means contingency is used at the same pace as progress. Amber and red limits (default 1.00× and 1.25×) are my rule of thumb and can be changed on the Project sheet. Early in a project (engineering, procurement, ground works) contingency is often used faster than progress, so read the index together with the project stage and the risks that are still open.</li>
+        <li><b>If today's rate continues</b> is a simple straight line: contingency used ÷ % complete. It is a warning sign, not a forecast – a proper forecast compares the remaining contingency with the open risks in your risk register (for example with a Monte Carlo analysis).</li>
+        <li><b>Status light</b>: red if approved or approved + likely pending changes are larger than the contingency budget, or the burn index is above the red limit; amber if the burn index is above the amber limit or the straight-line projection runs out before completion; otherwise green.</li>
+        <li><b>Client change orders</b> change the contract value (Client Price) and the cost budget (Cost Impact). They do not use contingency. Margin = Client Price − Cost Impact.</li>
+        <li><b>Schedule impact</b> is a simple sum of the days in the log. Delays on different paths do not add up, so this is not a critical-path analysis.</li>
+        <li>Rejected and Withdrawn changes are listed but not counted. Pending changes older than the limit (default 30 days) are listed under Decisions needed.</li>
+      </ul>
+    </details>
+  </section>
+
+  <footer>
+    <span>Amounts as entered in your file. The sample project is fictional.</span>
+    <span>Change &amp; Contingency Tracker · Sara Mostafshar · <a href="https://github.com/sara-mostafshar/change-contingency-tracker#whats-new" target="_blank" rel="noopener" style="color:inherit">Version 1.0 – last updated 21 Nov 2026 (first release)</a></span>
+  </footer>
+</div>
+
+<script>
+// ===== Change & Contingency Tracker core (no browser code – tested in Node) =====
+const CCT = (() => {
+  const norm = s => String(s == null ? "" : s).toLowerCase().replace(/[ _]/g, " ").replace(/[^a-z0-9%() ]/g, " ").replace(/\s+/g, " ").trim();
+  const DAY = 86400000;
+
+  // --- value parsers ---
+  function num(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "number") return isFinite(v) ? v : NaN;
+    let s = String(v).replace(/[\s  ]/g, "").replace(/[€$£]|eur|usd|gbp|sek|nok/gi, "");
+    s = s.replace(/^\((.*)\)$/, "-$1").replace(/^−/, "-").replace(/%$/, "");
+    if (s === "" || s === "-") return null;
+    const hasC = s.includes(","), hasD = s.includes(".");
+    if (hasC && hasD) {
+      if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
+      else s = s.replace(/,/g, "");
+    } else if (hasC) {
+      s = (s.match(/,/g).length > 1) ? s.replace(/,/g, "") : s.replace(",", "."); // single comma = decimal (Finnish)
+    } else if (hasD && (s.match(/\./g).length > 1)) s = s.replace(/\./g, "");
+    const n = Number(s);
+    return isFinite(n) ? n : NaN;
+  }
+  // percentage: 0.45, 45, "45%", "0,45" -> 0.45 ; returns NaN if out of 0..100%
+  function pct(v) {
+    if (v == null || v === "") return null;
+    const isPctText = typeof v === "string" && /%\s*$/.test(v.trim());
+    let n = num(v);
+    if (n == null || isNaN(n)) return NaN;
+    if (isPctText || n > 1) n = n / 100;
+    return (n < 0 || n > 1) ? NaN : n;
+  }
+  function utc(y, m, d) { const t = Date.UTC(y, m - 1, d); const x = new Date(t); return (x.getUTCFullYear() === y && x.getUTCMonth() === m - 1 && x.getUTCDate() === d) ? t : NaN; }
+  function date(v) {
+    if (v == null || v === "") return null;
+    if (v instanceof Date) return isNaN(v) ? NaN : utc(v.getFullYear(), v.getMonth() + 1, v.getDate());
+    if (typeof v === "number") { if (v < 1 || v > 2958465) return NaN; return Math.round((v - 25569)) * DAY; } // Excel serial (1900 system)
+    const s = String(v).trim();
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return utc(+m[1], +m[2], +m[3]);
+    m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/); // day first (European)
+    if (m) { let y = +m[3]; if (y < 100) y += 2000; return utc(y, +m[2], +m[1]); }
+    return NaN;
+  }
+  const fmtDate = t => { if (t == null || isNaN(t)) return "–"; const d = new Date(t); return String(d.getUTCDate()).padStart(2, "0") + "." + String(d.getUTCMonth() + 1).padStart(2, "0") + "." + d.getUTCFullYear(); };
+
+  function funding(v) {
+    const s = norm(v);
+    if (!s) return null;
+    if (/client|customer|owner|employer|variation order|change order|^co$/.test(s)) return "Client";
+    if (/management reserve|^mr$|reserve/.test(s)) return "Management Reserve";
+    if (/contingenc|^cont$/.test(s)) return "Contingency";
+    return undefined;
+  }
+  function status(v) {
+    const s = norm(v);
+    if (!s) return null;
+    if (/^(approved|accepted|released|agreed|signed|closed approved|appr)$/.test(s) || /^approved/.test(s)) return "Approved";
+    if (/^(pending|open|submitted|in review|under review|raised|draft|new|in progress|potential|proposed|awaiting approval)$/.test(s) || /pending|review|await/.test(s)) return "Pending";
+    if (/reject|declin|refus|not approved/.test(s)) return "Rejected";
+    if (/withdraw|cancel|void|duplicate|superseded/.test(s)) return "Withdrawn";
+    return undefined;
+  }
+
+  // --- sheet readers (input: array of arrays) ---
+  const PROJECT_KEYS = {
+    name: ["project name", "project"],
+    currency: ["currency"],
+    dataDate: ["data date", "report date", "status date", "cut off date", "cutoff date"],
+    contract: ["original contract value", "contract value", "original contract price", "contract price"],
+    budget: ["original cost budget", "original budget", "cost budget", "budget"],
+    contingency: ["contingency budget", "contingency"],
+    reserve: ["management reserve", "mr"],
+    complete: ["percent complete", "% complete", "physical progress", "progress", "percent complete (%)"],
+    ageDays: ["pending older than (days)", "pending older than"],
+    amber: ["burn index amber"],
+    red: ["burn index red"],
+    blankLik: ["blank likelihood counts as"],
+  };
+  function readProject(aoa) {
+    const out = {};
+    for (const row of aoa || []) {
+      if (!row) continue;
+      const k = norm(row[0]);
+      for (const key in PROJECT_KEYS) if (!(key in out) && PROJECT_KEYS[key].includes(k)) out[key] = row[1];
+    }
+    return out;
+  }
+  const CHANGE_COLS = {
+    id: ["change id", "change no", "change number", "co number", "co no", "change order", "id", "claim number", "change"],
+    desc: ["description", "title", "change description", "short text", "name"],
+    funding: ["funding", "funded by", "funding source", "source of funds", "type"],
+    status: ["status", "user status", "change status"],
+    cost: ["cost impact", "cost", "estimated cost", "cost impact (eur)", "amount", "value", "cost amount"],
+    price: ["client price", "revenue impact", "price to client", "client amount", "revenue", "price"],
+    days: ["schedule impact (days)", "schedule impact", "days", "delay (days)", "time impact (days)", "time impact"],
+    lik: ["likelihood", "probability", "likelihood %", "probability %", "likelihood (%)"],
+    raised: ["date raised", "raised", "raised on", "created on", "date created", "date submitted", "submitted"],
+    decided: ["date decided", "decided", "date approved", "approved on", "decision date", "approval date"],
+    wbs: ["wbs", "wbs element", "wbs code"],
+    owner: ["owner", "responsible", "person responsible"],
+    notes: ["notes", "comment", "comments", "remarks"],
+  };
+  function readChanges(aoa) {
+    aoa = aoa || [];
+    let hr = -1, map = null;
+    for (let r = 0; r < Math.min(aoa.length, 15); r++) {
+      const cells = (aoa[r] || []).map(norm);
+      const m = {};
+      for (const key in CHANGE_COLS) { const i = cells.findIndex(c => c && CHANGE_COLS[key].includes(c)); if (i >= 0) m[key] = i; }
+      if ("id" in m && "status" in m && "cost" in m) { hr = r; map = m; break; }
+    }
+    if (hr < 0) return { error: "Could not find the header row in the Changes sheet. It needs at least the columns Change ID, Status and Cost Impact." };
+    const rows = [];
+    for (let r = hr + 1; r < aoa.length; r++) {
+      const row = aoa[r] || [];
+      const g = k => (k in map) ? row[map[k]] : null;
+      const raw = { id: g("id"), desc: g("desc"), funding: g("funding"), status: g("status"), cost: g("cost") };
+      if ([raw.id, raw.desc, raw.funding, raw.status, raw.cost].every(v => v == null || String(v).trim() === "")) continue;
+      rows.push({ excelRow: r + 1, id: g("id"), desc: g("desc"), funding: g("funding"), status: g("status"), cost: g("cost"), price: g("price"), days: g("days"), lik: g("lik"), raised: g("raised"), decided: g("decided"), wbs: g("wbs"), owner: g("owner"), notes: g("notes") });
+    }
+    return { rows, hasFunding: "funding" in map, columns: Object.keys(map) };
+  }
+
+  // --- analysis ---
+  function analyse(projRaw, changeRows, opt) {
+    opt = opt || {};
+    const errors = [], warnings = [];
+    const P = {};
+    P.name = projRaw.name ? String(projRaw.name) : "Project";
+    P.currency = projRaw.currency ? String(projRaw.currency).trim() : "";
+    const needAmt = (key, label, allowZero) => {
+      const v = num(projRaw[key]);
+      if (v == null) { errors.push(`Project sheet: "${label}" is empty.`); return 0; }
+      if (isNaN(v) || v < 0 || (!allowZero && v === 0)) { errors.push(`Project sheet: "${label}" must be a positive number (found "${projRaw[key]}").`); return 0; }
+      return v;
+    };
+    P.contract = needAmt("contract", "Original Contract Value");
+    P.budget = needAmt("budget", "Original Cost Budget");
+    P.contingency = needAmt("contingency", "Contingency Budget");
+    { const v = num(projRaw.reserve); P.reserve = v == null ? 0 : v; if (isNaN(P.reserve) || P.reserve < 0) { errors.push(`Project sheet: "Management Reserve" must be 0 or a positive number (found "${projRaw.reserve}").`); P.reserve = 0; } }
+    P.complete = pct(projRaw.complete);
+    if (P.complete == null) { errors.push(`Project sheet: "Percent Complete" is empty. Type e.g. 45% or 0.45.`); P.complete = 0; }
+    else if (isNaN(P.complete)) { errors.push(`Project sheet: "Percent Complete" must be between 0% and 100% (found "${projRaw.complete}").`); P.complete = 0; }
+    const optNum = (key, label, def, lo, hi) => { const v = num(projRaw[key]); if (v == null) return def; if (isNaN(v) || v < lo || v > hi) { errors.push(`Project sheet: "${label}" must be between ${lo} and ${hi} (found "${projRaw[key]}").`); return def; } return v; };
+    P.ageDays = Math.round(optNum("ageDays", "Pending Older Than (days)", 30, 1, 3650));
+    P.amber = optNum("amber", "Burn Index Amber", 1.0, 0.1, 10);
+    P.red = optNum("red", "Burn Index Red", 1.25, 0.1, 10);
+    if (P.red < P.amber) errors.push(`Project sheet: "Burn Index Red" (${P.red}) must be equal to or higher than "Burn Index Amber" (${P.amber}).`);
+    { const v = pct(projRaw.blankLik); P.blankLik = v == null ? 1 : v; if (isNaN(P.blankLik)) { errors.push(`Project sheet: "Blank Likelihood Counts As" must be between 0% and 100% (found "${projRaw.blankLik}").`); P.blankLik = 1; } }
+
+    // data date: date box (opt) > Project sheet > today
+    let dd = null, ddSource = "";
+    if (opt.dataDate != null) { dd = opt.dataDate; ddSource = "date box"; }
+    else { const v = date(projRaw.dataDate); if (v != null && !isNaN(v)) { dd = v; ddSource = "file"; } else { if (v != null) warnings.push(`Project sheet: "Data Date" could not be read ("${projRaw.dataDate}"). Today is used.`); const n = opt.today != null ? opt.today : Date.now(); const t = new Date(n); dd = utc(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); ddSource = "today"; } }
+    P.dataDate = dd; P.dataDateSource = ddSource;
+
+    // changes
+    const items = [];
+    const ids = {};
+    for (const r of changeRows || []) {
+      const at = `Changes sheet row ${r.excelRow}${r.id ? " (" + r.id + ")" : ""}`;
+      const it = { row: r.excelRow, id: r.id == null || r.id === "" ? `Row ${r.excelRow}` : String(r.id).trim(), desc: r.desc == null ? "" : String(r.desc), wbs: r.wbs == null ? "" : String(r.wbs), owner: r.owner == null ? "" : String(r.owner), notes: r.notes == null ? "" : String(r.notes), flags: [] };
+      let f = funding(r.funding);
+      if (f === null) { f = "Contingency"; warnings.push(`${at}: Funding is empty – counted as Contingency.`); it.flags.push("Funding empty → Contingency"); }
+      if (f === undefined) { errors.push(`${at}: Funding "${r.funding}" is not recognised. Use Client, Contingency or Management Reserve.`); continue; }
+      let s = status(r.status);
+      if (s === null) { s = "Pending"; warnings.push(`${at}: Status is empty – counted as Pending.`); it.flags.push("Status empty → Pending"); }
+      if (s === undefined) { errors.push(`${at}: Status "${r.status}" is not recognised. Use Pending, Approved, Rejected or Withdrawn.`); continue; }
+      const cost = num(r.cost);
+      if (cost == null || isNaN(cost)) { errors.push(`${at}: Cost Impact ${cost == null ? "is empty" : `"${r.cost}" is not a number`}.`); continue; }
+      let price = num(r.price);
+      if (price != null && isNaN(price)) { errors.push(`${at}: Client Price "${r.price}" is not a number.`); continue; }
+      if (f !== "Client" && price) { warnings.push(`${at}: Client Price is filled but Funding is ${f} – the price is ignored.`); price = null; }
+      if (f === "Client" && price == null) { price = 0; if (s !== "Rejected" && s !== "Withdrawn") { warnings.push(`${at}: Client change without Client Price – revenue counted as 0.`); it.flags.push("No client price"); } }
+      let days = num(r.days); if (days != null && isNaN(days)) { warnings.push(`${at}: Schedule Impact "${r.days}" is not a number – ignored.`); days = null; }
+      let lik = pct(r.lik), likSet = true;
+      if (lik != null && isNaN(lik)) { errors.push(`${at}: Likelihood must be between 0% and 100% (found "${r.lik}").`); continue; }
+      if (lik == null) { lik = P.blankLik; likSet = false; }
+      const raised = date(r.raised), decided = date(r.decided);
+      if (raised != null && isNaN(raised)) warnings.push(`${at}: Date Raised "${r.raised}" could not be read.`);
+      if (decided != null && isNaN(decided)) warnings.push(`${at}: Date Decided "${r.decided}" could not be read.`);
+      if (ids[it.id] && !/^Row /.test(it.id)) warnings.push(`${at}: Change ID ${it.id} is used more than once (also row ${ids[it.id]}).`);
+      ids[it.id] = r.excelRow;
+      Object.assign(it, { funding: f, status: s, cost, price: price == null ? null : price, days, lik, likSet, raised: isNaN(raised) ? null : raised, decided: isNaN(decided) ? null : decided });
+      it.weighted = s === "Pending" ? cost * lik : (s === "Approved" ? cost : 0);
+      it.ageDays = (s === "Pending" && it.raised != null) ? Math.round((dd - it.raised) / DAY) : null;
+      if (s === "Approved" && it.decided != null && it.decided > dd) it.flags.push("Decided after data date");
+      items.push(it);
+    }
+
+    const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+    const by = (f, s) => items.filter(i => i.funding === f && i.status === s);
+    const pool = (f, budget) => {
+      const appr = by(f, "Approved"), pend = by(f, "Pending");
+      const used = sum(appr, i => i.cost), pendFull = sum(pend, i => i.cost), pendW = sum(pend, i => i.cost * i.lik);
+      return { budget, used, remaining: budget - used, pendFull, pendW, forecast: budget - used - pendW, forecastFull: budget - used - pendFull,
+        usedPct: budget ? used / budget : null, forecastPct: budget ? (budget - used - pendW) / budget : null, nAppr: appr.length, nPend: pend.length };
+    };
+    const C = pool("Contingency", P.contingency);
+    const MR = pool("Management Reserve", P.reserve);
+    if (!P.reserve && (MR.nAppr || MR.nPend)) warnings.push("There are Management Reserve changes but the Management Reserve budget is 0.");
+
+    // burn index and linear projection
+    C.burnIndex = (P.complete > 0 && P.contingency > 0) ? (C.used / P.contingency) / P.complete : null;
+    C.projectedNeed = (P.complete > 0) ? C.used / P.complete : null;       // total use at 100% if today's rate continues
+    C.projectedAtCompletion = C.projectedNeed == null ? null : P.contingency - C.projectedNeed;
+    C.runOutAt = (C.used > 0 && P.complete > 0) ? Math.min(P.contingency / (C.used / P.complete), 9.99) : null; // % complete when it would run out
+
+    // client changes
+    const ca = by("Client", "Approved"), cp = by("Client", "Pending");
+    const CL = { nAppr: ca.length, nPend: cp.length, revAppr: sum(ca, i => i.price || 0), costAppr: sum(ca, i => i.cost),
+      revPend: sum(cp, i => i.price || 0), costPend: sum(cp, i => i.cost), revPendW: sum(cp, i => (i.price || 0) * i.lik), costPendW: sum(cp, i => i.cost * i.lik) };
+    CL.marginAppr = CL.revAppr - CL.costAppr;
+    CL.marginApprPct = CL.revAppr ? CL.marginAppr / CL.revAppr : null;
+    CL.marginPend = CL.revPend - CL.costPend;
+    const contractNow = P.contract + CL.revAppr;
+    const budgetNow = P.budget + CL.costAppr + C.used + MR.used; // control budget incl. approved changes & drawdowns
+    const origMargin = P.contract - P.budget - P.contingency - P.reserve;
+    const marginNow = contractNow - (P.budget + CL.costAppr + P.contingency + P.reserve); // contingency/MR still fully provisioned
+
+    // schedule (simple sum)
+    const SCH = { appr: sum(items.filter(i => i.status === "Approved"), i => i.days || 0), pend: sum(items.filter(i => i.status === "Pending"), i => i.days || 0) };
+
+    // decisions needed
+    const decisions = items.filter(i => i.status === "Pending" && i.ageDays != null && i.ageDays > P.ageDays).sort((a, b) => b.ageDays - a.ageDays);
+    const pendNoDate = items.filter(i => i.status === "Pending" && i.raised == null).length;
+
+    // cumulative drawdown timeline (approved contingency by decision date)
+    const tl = items.filter(i => i.funding === "Contingency" && i.status === "Approved").map(i => ({ t: i.decided, v: i.cost, id: i.id }));
+    const noDate = tl.filter(x => x.t == null).length;
+    const timeline = tl.filter(x => x.t != null).sort((a, b) => a.t - b.t);
+    let cum = 0; timeline.forEach(x => { cum += x.v; x.cum = cum; });
+
+    // overall status
+    let rag = "green"; const reasons = [];
+    if (C.remaining < 0) { rag = "red"; reasons.push("approved drawdowns are already larger than the contingency budget"); }
+    else if (C.forecast < 0) { rag = "red"; reasons.push("approved plus likely pending changes are larger than the contingency budget"); }
+    if (C.burnIndex != null && C.burnIndex > P.red) { rag = "red"; reasons.push(`contingency is being used ${fmtX(C.burnIndex)} as fast as the project progresses (red above ${fmtX(P.red)})`); }
+    else if (C.burnIndex != null && C.burnIndex > P.amber) { if (rag !== "red") rag = "amber"; reasons.push(`contingency is being used faster than the project progresses (burn index ${fmtX(C.burnIndex)}, amber above ${fmtX(P.amber)})`); }
+    if (rag === "green" && C.projectedAtCompletion != null && C.projectedAtCompletion < 0) { rag = "amber"; reasons.push("at today's rate of use the contingency would run out before completion"); }
+    if (rag === "green") reasons.push(P.complete === 0 ? "no progress reported yet – the burn index cannot be calculated" : "contingency use is in line with or slower than progress");
+
+    return { ok: errors.length === 0, errors, warnings, P, items, C, MR, CL, SCH, contractNow, budgetNow, origMargin, marginNow, decisions, pendNoDate, timeline, timelineNoDate: noDate, rag, reasons,
+      counts: { total: items.length, appr: items.filter(i => i.status === "Approved").length, pend: items.filter(i => i.status === "Pending").length, rej: items.filter(i => i.status === "Rejected").length, wd: items.filter(i => i.status === "Withdrawn").length } };
+  }
+  function fmtX(x) { return x == null ? "–" : x.toFixed(2) + "×"; }
+
+  return { num, pct, date, fmtDate, funding, status, readProject, readChanges, analyse, fmtX };
+})();
+
+
+
+const SAMPLE_B64 = "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";
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let wbData = null, result = null, srcName = "", downloads = null, sampleFn = null, filt = { status: "", funding: "" };
+
+const nf0 = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 });
+function cur() { return result && result.P.currency ? " " + result.P.currency : ""; }
+function money(x) { return x == null ? "–" : (x < 0 ? "−" : "") + nf0.format(Math.abs(Math.round(x))) + cur(); }
+function short(x) {
+  if (x == null) return "–";
+  const a = Math.abs(x), sg = x < 0 ? "−" : "";
+  if (a >= 1e6) return sg + (a / 1e6).toFixed(2) + "M" + cur();
+  if (a >= 1e4) return sg + Math.round(a / 1e3) + "k" + cur();
+  return sg + nf0.format(Math.round(a)) + cur();
+}
+const pc = (x, d = 0) => x == null ? "–" : (x * 100).toFixed(d) + "%";
+const b64ToBytes = b => { const s = atob(b); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+
+function setMsg(html, err) { const m = $("msg"); m.innerHTML = html; m.className = "msg" + (err ? " err" : ""); }
+
+function load(bytes, name) {
+  try {
+    const wb = XLSX.read(bytes, { type: "array", cellDates: false });
+    const find = n => wb.SheetNames.find(s => s.trim().toLowerCase() === n);
+    const ps = find("project"), cs = find("changes") || find("change log") || find("changelog");
+    const missing = [!ps && '"Project"', !cs && '"Changes"'].filter(Boolean);
+    if (missing.length) { setMsg(`The file needs the sheet${missing.length > 1 ? "s" : ""} ${missing.join(" and ")}. Download the sample Excel to see the layout.`, true); return; }
+    const aoa = s => XLSX.utils.sheet_to_json(wb.Sheets[s], { header: 1, raw: true, defval: null });
+    wbData = { project: CCT.readProject(aoa(ps)), changes: CCT.readChanges(aoa(cs)) };
+    srcName = name;
+    run();
+  } catch (e) { setMsg("Could not read this file. Please upload an Excel file (.xlsx).", true); }
+}
+
+function run() {
+  if (!wbData) return;
+  if (wbData.changes.error) { setMsg(esc(wbData.changes.error), true); $("results").style.display = "none"; return; }
+  const ddv = $("dd").value;
+  const opt = {};
+  if (ddv) { const [y, m, d] = ddv.split("-").map(Number); opt.dataDate = Date.UTC(y, m - 1, d); }
+  const r = CCT.analyse(wbData.project, wbData.changes.rows, opt);
+  if (!r.ok) {
+    setMsg(`Please fix ${r.errors.length > 1 ? "these" : "this"} in your file and upload it again:<ul>${r.errors.slice(0, 12).map(e => `<li>${esc(e)}</li>`).join("")}</ul>`, true);
+    $("results").style.display = "none"; result = null; return;
+  }
+  result = r;
+  const src = r.P.dataDateSource === "file" ? "from the file" : r.P.dataDateSource === "date box" ? "from the date box" : "today – no Data Date in the file";
+  setMsg(`Loaded <b>${esc(srcName)}</b>: ${r.counts.total} changes. Data date ${CCT.fmtDate(r.P.dataDate)} (${src}).`);
+  render();
+}
+
+function render() {
+  const r = result, P = r.P, C = r.C;
+  $("results").style.display = "block";
+  $("aiWrap").style.display = "none";
+  // KPIs
+  $("light").className = "light " + r.rag;
+  $("verdict").textContent = { green: "On track", amber: "Watch closely", red: "Action needed" }[r.rag];
+  $("verdictSub").textContent = r.reasons[0].charAt(0).toUpperCase() + r.reasons[0].slice(1) + ".";
+  $("kLeft").textContent = short(C.remaining); $("kLeft").className = "v mono" + (C.remaining < 0 ? " neg" : "");
+  $("kLeftS").textContent = `${pc(C.remaining / P.contingency)} of ${short(P.contingency)} budget`;
+  $("kFc").textContent = short(C.forecast); $("kFc").className = "v mono" + (C.forecast < 0 ? " neg" : "");
+  $("kFcS").textContent = `${C.nPend} pending · ${short(C.pendW)} likely`;
+  $("kBi").textContent = C.burnIndex == null ? "–" : CCT.fmtX(C.burnIndex);
+  $("kBiS").textContent = C.burnIndex == null ? "needs % complete above 0" : `${pc(C.usedPct)} used at ${pc(P.complete)} complete`;
+  $("kCv").textContent = short(r.contractNow);
+  $("kCvS").textContent = r.CL.revAppr ? `+${short(r.CL.revAppr)} approved client changes` : "no approved client changes";
+
+  renderSummary();
+  renderContingency();
+  renderChart();
+  renderClient();
+  renderDecisions();
+  renderChips(); renderLog();
+  // warnings
+  $("warnCard").style.display = r.warnings.length ? "block" : "none";
+  $("warnList").innerHTML = r.warnings.map(w => `<li>${esc(w)}</li>`).join("");
+}
+
+function summaryParts() {
+  const r = result, P = r.P, C = r.C, CL = r.CL;
+  const word = { green: "GREEN – on track", amber: "AMBER – watch closely", red: "RED – action needed" }[r.rag];
+  const lines = [];
+  lines.push(`${P.name} – contingency status ${word} at data date ${CCT.fmtDate(P.dataDate)} (${pc(P.complete)} complete).`);
+  const pts = [];
+  pts.push(`Contingency: ${money(C.used)} of ${money(P.contingency)} used (${pc(C.usedPct)}), ${money(C.remaining)} left today.` +
+    (C.burnIndex != null ? ` Burn index ${CCT.fmtX(C.burnIndex)}: contingency is being used ${C.burnIndex > 1.005 ? "faster than" : C.burnIndex < 0.995 ? "slower than" : "at the same pace as"} the project progresses.` : ""));
+  if (C.nPend) pts.push(`Pending: ${C.nPend} contingency item${C.nPend > 1 ? "s" : ""} worth ${money(C.pendFull)} (${money(C.pendW)} likely). If they come in as expected, ${money(C.forecast)} (${pc(C.forecastPct)}) is left for the remaining ${pc(1 - P.complete)} of the work.`);
+  if (C.projectedAtCompletion != null && C.projectedAtCompletion < 0 && C.runOutAt != null)
+    pts.push(`If contingency keeps being used at today's rate, it would run out at about ${pc(C.runOutAt)} complete – a shortfall of about ${money(-C.projectedAtCompletion)} at completion (simple straight-line projection).`);
+  if (CL.nAppr || CL.nPend) pts.push(`Client change orders: ${CL.nAppr} approved, adding ${money(CL.revAppr)} to the contract (now ${money(r.contractNow)})` +
+    (CL.revAppr ? ` with a margin of ${money(CL.marginAppr)} (${pc(CL.marginApprPct)})` : "") + `.` +
+    (CL.nPend ? ` ${CL.nPend} more worth ${money(CL.revPend)} are waiting for the client.` : ""));
+  if (P.reserve) pts.push(`Management reserve: ${money(r.MR.used)} used, ${money(r.MR.remaining)} left.`);
+  if (r.SCH.appr || r.SCH.pend) pts.push(`Schedule: approved changes carry ${nf0.format(r.SCH.appr)} days of claimed delay, pending ones ${nf0.format(r.SCH.pend)} days (simple sum, not a critical-path analysis).`);
+  const acts = [];
+  if (r.decisions.length) acts.push(`Decide on the ${r.decisions.length} pending change${r.decisions.length > 1 ? "s" : ""} older than ${P.ageDays} days: ${r.decisions.slice(0, 4).map(d => `${d.id} (${d.ageDays} days, ${short(d.cost)})`).join(", ")}${r.decisions.length > 4 ? ", …" : ""}.`);
+  if (r.rag !== "green") acts.push(`Compare the remaining contingency with the risks still open in the risk register, and agree with management whether more contingency or management reserve is needed.`);
+  const noLik = r.items.filter(i => i.status === "Pending" && !i.likSet);
+  if (noLik.length) acts.push(`Assess the likelihood of ${noLik.map(i => i.id).join(", ")} – ${noLik.length > 1 ? "they are" : "it is"} now counted at ${pc(P.blankLik)}.`);
+  const bigClient = r.items.filter(i => i.funding === "Client" && i.status === "Pending").sort((a, b) => (b.price || 0) - (a.price || 0))[0];
+  if (bigClient) acts.push(`Follow up with the client on ${bigClient.id} (${bigClient.desc}, ${money(bigClient.price)}).`);
+  if (!acts.length) acts.push("No action needed now – keep the change log up to date and review again at the next data date.");
+  return { lines, pts, acts };
+}
+
+function renderSummary() {
+  const s = summaryParts();
+  $("sumBody").innerHTML = `<p><b>${esc(s.lines[0])}</b></p><ul>${s.pts.map(p => `<li>${esc(p)}</li>`).join("")}</ul><h3>Suggested next steps</h3><ul>${s.acts.map(p => `<li>${esc(p)}</li>`).join("")}</ul>`;
+}
+function summaryText() { const s = summaryParts(); return s.lines[0] + "\n\n" + s.pts.map(p => "- " + p).join("\n") + "\n\nSuggested next steps:\n" + s.acts.map(p => "- " + p).join("\n"); }
+
+function renderContingency() {
+  const r = result, P = r.P, C = r.C, B = P.contingency;
+  const used = Math.max(0, C.used), pend = Math.max(0, C.pendW);
+  const total = Math.max(B, used + pend);
+  const w = x => (100 * x / total).toFixed(2) + "%";
+  const left = Math.max(0, B - used - pend), over = Math.max(0, used + pend - B);
+  $("cBar").innerHTML = `<div class="u" style="width:${w(Math.min(used, B))}" title="Used"></div><div class="p" style="width:${w(Math.max(0, Math.min(pend, B - Math.min(used, B))))}" title="Likely pending"></div><div class="r" style="width:${w(left)}" title="Left"></div><div class="o" style="width:${w(over)}" title="Over budget"></div>`;
+  $("cLegend").innerHTML = `<span><i style="background:var(--navy)"></i>Used ${pc(C.usedPct)}</span><span><i style="background:var(--pend)"></i>Likely pending ${pc(C.pendW / B)}</span><span><i style="background:var(--left)"></i>Left ${pc(left / B)}</span>` + (over ? `<span><i style="background:var(--fail)"></i>Over budget ${short(over)}</span>` : "");
+  const row = (a, b, hint, cls) => `<tr class="${cls || ""}"><td>${a}${hint ? `<span class="hint">${hint}</span>` : ""}</td><td class="r mono${/−/.test(b) ? " neg" : ""}">${b}</td></tr>`;
+  let h = row("Contingency budget", money(B)) +
+    row("Approved drawdowns", money(-C.used), `${C.nAppr} approved change${C.nAppr === 1 ? "" : "s"}`) +
+    row("Left today", money(C.remaining), "", "tot") +
+    row("Pending (likely)", money(-C.pendW), `${C.nPend} pending · ${money(C.pendFull)} if all approved`) +
+    row("Left after likely pending", money(C.forecast), `${money(C.forecastFull)} if all pending are approved`, "tot");
+  if (C.projectedAtCompletion != null) h += row("If today's rate continues", money(C.projectedAtCompletion), C.projectedAtCompletion < 0 && C.runOutAt != null ? `left at completion · would run out at ~${pc(C.runOutAt)} complete` : "left at completion (straight line)");
+  $("cTable").innerHTML = h;
+}
+
+function renderChart() {
+  const r = result, P = r.P, C = r.C, tl = r.timeline;
+  const W = 520, H = 230, L = 58, R = 14, T = 14, Bm = 30;
+  if (!tl.length) { $("chart").innerHTML = `<div class="cd" style="padding:30px 0">No approved contingency drawdowns with a Date Decided yet.</div>`; $("chartNote").textContent = ""; return; }
+  const dates = [tl[0].t, P.dataDate];
+  r.items.forEach(i => { if (i.raised != null) dates.push(i.raised); });
+  let t0 = Math.min(...dates), t1 = Math.max(P.dataDate, tl[tl.length - 1].t);
+  if (t1 - t0 < 30 * 864e5) t0 = t1 - 30 * 864e5;
+  const ymax = Math.max(P.contingency, ...tl.map(x => x.cum)) * 1.12;
+  const ymin = Math.min(0, ...tl.map(x => x.cum));
+  const X = t => L + (W - L - R) * (t - t0) / (t1 - t0), Y = v => T + (H - T - Bm) * (1 - (v - ymin) / (ymax - ymin));
+  let path = `M${X(t0).toFixed(1)},${Y(0).toFixed(1)}`, prev = 0;
+  tl.forEach(x => { path += ` L${X(x.t).toFixed(1)},${Y(prev).toFixed(1)} L${X(x.t).toFixed(1)},${Y(x.cum).toFixed(1)}`; prev = x.cum; });
+  path += ` L${X(P.dataDate).toFixed(1)},${Y(prev).toFixed(1)}`;
+  // y ticks
+  let ticks = "";
+  for (let k = 0; k <= 4; k++) { const v = ymin + (ymax - ymin) * k / 4; ticks += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eef0f4"/><text x="${L - 6}" y="${Y(v) + 4}" font-size="10.5" text-anchor="end" fill="#7a859b">${short(v).replace(cur(), "")}</text>`; }
+  // x ticks: months
+  let xt = ""; const d0 = new Date(t0); let m = Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1, 1);
+  const months = []; while (m <= t1) { months.push(m); const d = new Date(m); m = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1); }
+  const step = Math.ceil(months.length / 7);
+  months.forEach((mm, i) => { if (i % step) return; const d = new Date(mm); xt += `<text x="${X(mm)}" y="${H - 10}" font-size="10.5" text-anchor="middle" fill="#7a859b">${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}${d.getUTCMonth() === 0 || i === 0 ? " " + String(d.getUTCFullYear()).slice(2) : ""}</text>`; });
+  const exp = P.contingency * P.complete;
+  const dots = tl.map(x => `<circle cx="${X(x.t)}" cy="${Y(x.cum)}" r="3.2" fill="#1f3864"><title>${esc(x.id)} · ${CCT.fmtDate(x.t)} · ${money(x.v)} → total ${money(x.cum)}</title></circle>`).join("");
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative approved contingency drawdowns">
+    ${ticks}${xt}
+    <line x1="${L}" x2="${W - R}" y1="${Y(P.contingency)}" y2="${Y(P.contingency)}" stroke="#c8372d" stroke-dasharray="5 4" stroke-width="1.5"/>
+    <text x="${W - R}" y="${Y(P.contingency) - 5}" font-size="11" text-anchor="end" fill="#c8372d">Budget ${short(P.contingency)}</text>
+    <line x1="${X(P.dataDate)}" x2="${X(P.dataDate)}" y1="${T}" y2="${H - Bm}" stroke="#b9c3d6" stroke-dasharray="2 3"/>
+    <path d="${path}" fill="none" stroke="#1f3864" stroke-width="2.2"/>${dots}
+    <circle cx="${X(P.dataDate)}" cy="${Y(exp)}" r="5" fill="#fff" stroke="#1e8a5a" stroke-width="2"><title>In line with progress: ${money(exp)}</title></circle>
+  </svg>`;
+  $("chartNote").innerHTML = `Green circle = use in line with progress at the data date (${pc(P.complete)} of budget = ${money(exp)}). Actual: ${money(C.used)}.` + (r.timelineNoDate ? ` ${r.timelineNoDate} approved drawdown(s) without Date Decided are not shown in the chart but are counted in the totals.` : "");
+}
+
+function renderClient() {
+  const r = result, P = r.P, CL = r.CL;
+  const row = (a, b, hint, cls) => `<tr class="${cls || ""}"><td>${a}${hint ? `<span class="hint">${hint}</span>` : ""}</td><td class="r mono${/−/.test(b) ? " neg" : ""}">${b}</td></tr>`;
+  $("clTable").innerHTML = row("Original contract value", money(P.contract)) +
+    row("Approved client changes", money(CL.revAppr), `${CL.nAppr} approved · cost ${money(CL.costAppr)}`) +
+    row("Contract value now", money(r.contractNow), "", "tot") +
+    row("Margin on approved changes", money(CL.marginAppr), CL.marginApprPct == null ? "" : pc(CL.marginApprPct, 1) + " of client price") +
+    row("Pending client changes", money(CL.revPend), `${CL.nPend} pending · ${money(CL.revPendW)} likely · cost ${money(CL.costPend)}`);
+  $("mrTable").innerHTML = (P.reserve || r.MR.nAppr || r.MR.nPend ?
+    row("Management reserve", money(P.reserve)) + row("Approved drawdowns", money(-r.MR.used), `${r.MR.nAppr} approved`) + row("Left today", money(r.MR.remaining), "", "tot") + (r.MR.nPend ? row("Left after likely pending", money(r.MR.forecast), `${r.MR.nPend} pending`) : "")
+    : row("Management reserve", "not used", "no reserve in the file")) +
+    row("Schedule impact – approved", nf0.format(r.SCH.appr) + " days", "simple sum, not critical path", "tot") +
+    row("Schedule impact – pending", nf0.format(r.SCH.pend) + " days");
+}
+
+function renderDecisions() {
+  const r = result, P = r.P, d = r.decisions;
+  $("decSub").textContent = `pending longer than ${P.ageDays} days at the data date`;
+  if (!d.length) { $("decBody").innerHTML = `<div class="empty">✓ No pending change is older than ${P.ageDays} days.</div>` + (r.pendNoDate ? `<div class="cd">${r.pendNoDate} pending change(s) have no Date Raised and cannot be aged.</div>` : ""); return; }
+  $("decBody").innerHTML = `<table><thead><tr><th>ID</th><th>Description</th><th>Funding</th><th class="r">Age</th><th class="r">Cost impact</th><th class="r">Likelihood</th></tr></thead><tbody>` +
+    d.map(i => `<tr><td class="id">${esc(i.id)}</td><td>${esc(i.desc)}${i.owner ? `<div class="cd">${esc(i.owner)}</div>` : ""}</td><td>${i.funding}</td><td class="r mono">${i.ageDays} days</td><td class="r mono">${money(i.cost)}</td><td class="r mono">${pc(i.lik)}${i.likSet ? "" : '<div class="flag">not assessed</div>'}</td></tr>`).join("") +
+    `</tbody></table>` + (r.pendNoDate ? `<div class="cd" style="margin-top:6px">${r.pendNoDate} pending change(s) have no Date Raised and cannot be aged.</div>` : "");
+}
+
+function renderChips() {
+  const c = result.counts;
+  const opts = [["", `All ${c.total}`], ["Approved", `Approved ${c.appr}`], ["Pending", `Pending ${c.pend}`], ["Rejected", `Rejected ${c.rej}`], ["Withdrawn", `Withdrawn ${c.wd}`]];
+  $("chips").innerHTML = opts.map(([v, l]) => `<button data-s="${v}" class="${filt.status === v ? "on" : ""}">${l}</button>`).join("");
+  $("chips").querySelectorAll("button").forEach(b => b.onclick = () => { filt.status = b.dataset.s; renderChips(); renderLog(); });
+}
+function renderLog() {
+  const items = result.items.filter(i => (!filt.status || i.status === filt.status) && (!filt.funding || i.funding === filt.funding));
+  $("logBody").innerHTML = items.length ? items.map(i => `<tr>
+    <td class="id">${esc(i.id)}</td>
+    <td>${esc(i.desc)}${i.wbs || i.owner ? `<div class="cd">${esc([i.wbs, i.owner].filter(Boolean).join(" · "))}</div>` : ""}${i.flags.length ? `<div class="flag">${esc(i.flags.join(" · "))}</div>` : ""}</td>
+    <td>${i.funding}</td><td><span class="pill ${i.status}">${i.status}</span></td>
+    <td class="r mono${i.cost < 0 ? " neg" : ""}">${money(i.cost)}</td>
+    <td class="r mono">${i.funding === "Client" ? money(i.price) : ""}</td>
+    <td class="r mono">${i.status === "Pending" ? pc(i.lik) + (i.likSet ? "" : "*") : ""}</td>
+    <td class="r mono">${i.days ? nf0.format(i.days) : ""}</td>
+    <td class="r mono">${CCT.fmtDate(i.raised)}</td></tr>`).join("") : `<tr><td colspan="9" class="cd">No changes match this filter.</td></tr>`;
+}
+
+async function aiSummary() {
+  if (!sampleFn || !result) return;
+  const btn = $("aiBtn"); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Writing…';
+  $("aiWrap").style.display = "block"; $("aiBox").textContent = "Thinking…";
+  const r = result;
+  const compact = { project: r.P.name, currency: r.P.currency, dataDate: CCT.fmtDate(r.P.dataDate), percentComplete: pc(r.P.complete), status: r.rag, statusReasons: r.reasons,
+    contingency: { budget: r.P.contingency, used: r.C.used, leftToday: r.C.remaining, pendingFull: r.C.pendFull, pendingLikely: r.C.pendW, leftAfterLikelyPending: r.C.forecast, burnIndex: r.C.burnIndex && +r.C.burnIndex.toFixed(2), straightLineLeftAtCompletion: r.C.projectedAtCompletion && Math.round(r.C.projectedAtCompletion) },
+    managementReserve: { budget: r.P.reserve, used: r.MR.used, left: r.MR.remaining },
+    clientChanges: { approvedRevenue: r.CL.revAppr, approvedMargin: r.CL.marginAppr, contractNow: r.contractNow, pendingRevenue: r.CL.revPend, pendingCount: r.CL.nPend },
+    oldPendingChanges: r.decisions.map(d => `${d.id} ${d.desc} (${d.ageDays} days, ${d.cost})`),
+    scheduleDaysApproved: r.SCH.appr, scheduleDaysPending: r.SCH.pend };
+  const prompt = `You are a project controls assistant writing for top management (non-specialists).
+Below are the results of a change and contingency review (JSON). Amounts are in ${r.P.currency || "the project currency"}.
+Write a short executive summary in plain English:
+- 1-2 sentences: overall verdict on contingency health.
+- Then "Key points:" with 3 bullets (start each with "- ") in business terms.
+- Then "Recommended actions:" with 3 bullets (start each with "- "), concrete and practical, naming change IDs where useful.
+Max 170 words. No markdown headings, no bold. Explain "burn index" in a few words if you use it. The straight-line projection is a warning sign, not a forecast.
+
+${JSON.stringify(compact)}`;
+  try {
+    await sampleFn(prompt, { modelTier: "quick", onText: ({ text }) => { $("aiBox").textContent = text; } }).then(x => { $("aiBox").textContent = x.text; });
+  } catch (e) {
+    $("aiBox").textContent = e && e.code === "rate_limited" ? "Too many requests right now. Try again in a minute." : "The AI summary is not available in this view. The summary above is generated from the numbers.";
+    if (e && e.code === "not_granted") btn.style.display = "none";
+  }
+  btn.disabled = false; btn.textContent = "✦ Rewrite AI summary";
+}
+
+// wiring
+const drop = $("drop"), file = $("file");
+drop.onclick = () => file.click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } };
+file.onchange = () => { const f = file.files[0]; if (f) f.arrayBuffer().then(b => load(new Uint8Array(b), f.name)); file.value = ""; };
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) f.arrayBuffer().then(b => load(new Uint8Array(b), f.name)); });
+$("sampleBtn").onclick = () => { $("dd").value = ""; filt = { status: "", funding: "" }; $("fundSel").value = ""; load(b64ToBytes(SAMPLE_B64), "the sample project (Water Treatment Plant Expansion – EPC)"); };
+$("dd").onchange = run;
+$("fundSel").onchange = () => { filt.funding = $("fundSel").value; renderLog(); };
+$("aiBtn").onclick = aiSummary;
+$("printBtn").onclick = () => window.print();
+$("copyBtn").onclick = async () => {
+  const b = $("copyBtn");
+  try { await navigator.clipboard.writeText(summaryText()); b.textContent = "Copied ✓"; }
+  catch (e) { b.textContent = "Copy not allowed here"; }
+  setTimeout(() => b.textContent = "Copy summary", 1800);
+};
+$("dlBtn").onclick = async () => {
+  try { await downloads.save({ filename: "Change_Contingency_Tracker_Sample_Data.xlsx", data: b64ToBytes(SAMPLE_B64) }); }
+  catch (e) { if (e && ["unavailable", "not_granted", "capability_disabled", "capability_removed"].includes(e.code)) $("dlBtn").style.display = "none"; }
+};
+(async () => {
+  if (!window.claude || !window.claude.use) { $("dlLink").style.display = "block"; return; }
+  $("printBtn").style.display = "none"; // printing is blocked inside the Claude preview; works on GitHub Pages
+  try { downloads = await window.claude.use("downloads"); if (downloads) $("dlBtn").style.display = "block"; } catch (e) {}
+  try { sampleFn = await window.claude.use("sample"); if (sampleFn) $("aiBtn").style.display = "inline-block"; } catch (e) {}
+})();
+</script>
+<!-- Visitor count (GoatCounter, no cookies) -->
+<script>
+/* Anonymous usage counting with GoatCounter: only button names are sent, never file contents or data. */
+(function(){
+  function gc(name){ try{ if(window.goatcounter&&window.goatcounter.count) window.goatcounter.count({path:name,title:name,event:true}); }catch(e){} }
+  var CLICKS=[["#sampleBtn","cct-try-sample"],["#dlBtn","cct-download-sample"],["#dlLink","cct-download-sample"],["#aiBtn","cct-ai-summary"],["#copyBtn","cct-copy-summary"],["#printBtn","cct-print"],["a.yt-sub","cct-youtube-subscribe"],["a.pf","cct-portfolio"]];
+  var CHANGES=[["#file","cct-upload-own-file"]];
+  document.addEventListener("click",function(e){
+    for(var i=0;i<CLICKS.length;i++){ var el=e.target.closest&&e.target.closest(CLICKS[i][0]); if(el){ gc(CLICKS[i][1]); return; } }
+  },true);
+  document.addEventListener("change",function(e){
+    for(var i=0;i<CHANGES.length;i++){ if(e.target.matches&&e.target.matches(CHANGES[i][0])&&e.target.files&&e.target.files.length){ gc(CHANGES[i][1]); return; } }
+  },true);
+})();
+</script>
+<script data-goatcounter="https://saramostafshar.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
