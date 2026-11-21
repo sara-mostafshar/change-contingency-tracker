@@ -16,7 +16,7 @@ A free browser tool for project controllers and project managers. Upload your ch
 2. Fill in the sheets `Project` (budget, contingency, % complete) and `Changes` (one row per change).
 3. Drop the file on the page.
 
-Working from SAP or another system? Export your change or claim list to Excel and paste it into the `Changes` sheet. Common column names (WBS Element, Amount, Probability…) are recognised.
+**From your ERP (SAP or others):** export your change or claim list to Excel and paste it into the `Changes` sheet – the template uses common ERP column names (WBS Element, Notification, User Status, Amount, Created On). **From any other source:** fill in the same sheet from a change register or spreadsheet; your own column names (Change ID, Status, Cost Impact…) work too. Take Percent Complete from your schedule, e.g. Primavera P6. The tool supplements your ERP – it does not replace it.
 
 ## Good to know
 - The burn index limits (amber 1.00×, red 1.25×) are a rule of thumb and can be changed in the template. Early in a project contingency is often used faster than progress.
