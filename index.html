@@ -180,8 +180,8 @@ footer{margin-top:26px;font-size:12.5px;color:var(--muted);display:flex;justify-
         <div><div class="l">Contingency status</div><div class="verdict" id="verdict"></div><div class="s" id="verdictSub"></div></div>
       </div>
       <div class="kpi"><div class="l">Contingency left today</div><div class="v mono" id="kLeft"></div><div class="s" id="kLeftS"></div></div>
-      <div class="kpi"><div class="l">Left after likely pending</div><div class="v mono" id="kFc"></div><div class="s" id="kFcS"></div></div>
-      <div class="kpi"><div class="l">Burn index</div><div class="v mono" id="kBi"></div><div class="s" id="kBiS"></div></div>
+      <div class="kpi"><div class="l">Left after pending changes</div><div class="v mono" id="kFc"></div><div class="s" id="kFcS"></div></div>
+      <div class="kpi"><div class="l">Burn index (use vs. progress)</div><div class="v mono" id="kBi"></div><div class="s" id="kBiS"></div></div>
       <div class="kpi"><div class="l">Contract value now</div><div class="v mono" id="kCv"></div><div class="s" id="kCvS"></div></div>
     </div>
 
@@ -205,7 +205,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--muted);display:flex;justify-
         <table class="kv" id="cTable"></table>
       </div>
       <div class="card">
-        <h2>Contingency used over time <span class="cd">approved drawdowns by date decided</span></h2>
+        <h2>Contingency used over time <span class="cd">approved changes, by decision date</span></h2>
         <div id="chart"></div>
         <div class="cd" id="chartNote"></div>
       </div>
@@ -232,18 +232,18 @@ footer{margin-top:26px;font-size:12.5px;color:var(--muted);display:flex;justify-
       <h2>Change log
         <span style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <span class="chips" id="chips"></span>
-          <select id="fundSel" aria-label="Filter by funding"><option value="">All funding</option><option>Client</option><option>Contingency</option><option>Management Reserve</option></select>
+          <select id="fundSel" aria-label="Filter by funding"><option value="">Paid from: all</option><option>Client</option><option>Contingency</option><option>Management Reserve</option></select>
         </span>
       </h2>
       <div class="tablewrap"><table>
-        <thead><tr><th>ID</th><th>Description</th><th>Funding</th><th>Status</th><th class="r">Cost impact</th><th class="r">Client price</th><th class="r">Likelihood</th><th class="r">Days</th><th class="r">Raised</th></tr></thead>
+        <thead><tr><th>ID</th><th>Description</th><th>Paid from</th><th>Status</th><th class="r">Cost impact</th><th class="r">Client price</th><th class="r">Likelihood</th><th class="r">Delay (days)</th><th class="r">Raised on</th></tr></thead>
         <tbody id="logBody"></tbody>
       </table></div>
       <div class="cd" id="logNote" style="margin-top:8px"></div>
     </div>
 
     <div class="card" id="warnCard" style="display:none">
-      <h2>Notes on your data <span class="cd">the tool made these assumptions</span></h2>
+      <h2>Notes on your data <span class="cd">please check these rows in your file</span></h2>
       <ul class="msg" id="warnList" style="margin:0;padding-left:18px"></ul>
     </div>
 
@@ -251,7 +251,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--muted);display:flex;justify-
       <summary>How is it calculated?</summary>
       <ul>
         <li><b>Contingency left today</b> = Contingency Budget − approved Contingency changes. Savings (negative cost) give money back.</li>
-        <li><b>Left after likely pending</b> = Contingency left today − (cost × likelihood) of every pending Contingency change. Empty likelihood counts at 100% by default (conservative).</li>
+        <li><b>Left after pending changes</b> = Contingency left today − (cost × likelihood) of every pending Contingency change. Empty likelihood counts at 100% by default (conservative).</li>
         <li><b>Burn index</b> = % of contingency used ÷ % complete. 1.00× means contingency is used at the same pace as progress. Amber and red limits (default 1.00× and 1.25×) are my rule of thumb and can be changed on the Project sheet. Early in a project (engineering, procurement, ground works) contingency is often used faster than progress, so read the index together with the project stage and the risks that are still open.</li>
         <li><b>If today's rate continues</b> is a simple straight line: contingency used ÷ % complete. It is a warning sign, not a forecast – a proper forecast compares the remaining contingency with the open risks in your risk register (for example with a Monte Carlo analysis).</li>
         <li><b>Status light</b>: red if approved or approved + likely pending changes are larger than the contingency budget, or the burn index is above the red limit; amber if the burn index is above the amber limit or the straight-line projection runs out before completion; otherwise green.</li>
@@ -506,7 +506,7 @@ const CCT = (() => {
 
     // overall status
     let rag = "green"; const reasons = [];
-    if (C.remaining < 0) { rag = "red"; reasons.push("approved drawdowns are already larger than the contingency budget"); }
+    if (C.remaining < 0) { rag = "red"; reasons.push("approved changes have already used more than the contingency budget"); }
     else if (C.forecast < 0) { rag = "red"; reasons.push("approved plus likely pending changes are larger than the contingency budget"); }
     if (C.burnIndex != null && C.burnIndex > P.red) { rag = "red"; reasons.push(`contingency is being used ${fmtX(C.burnIndex)} as fast as the project progresses (red above ${fmtX(P.red)})`); }
     else if (C.burnIndex != null && C.burnIndex > P.amber) { if (rag !== "red") rag = "amber"; reasons.push(`contingency is being used faster than the project progresses (burn index ${fmtX(C.burnIndex)}, amber above ${fmtX(P.amber)})`); }
@@ -585,9 +585,9 @@ function render() {
   $("kLeft").textContent = short(C.remaining); $("kLeft").className = "v mono" + (C.remaining < 0 ? " neg" : "");
   $("kLeftS").textContent = `${pc(C.remaining / P.contingency)} of ${short(P.contingency)} budget`;
   $("kFc").textContent = short(C.forecast); $("kFc").className = "v mono" + (C.forecast < 0 ? " neg" : "");
-  $("kFcS").textContent = `${C.nPend} pending · ${short(C.pendW)} likely`;
+  $("kFcS").textContent = `after ${C.nPend} pending changes (likely cost ${short(C.pendW)})`;
   $("kBi").textContent = C.burnIndex == null ? "–" : CCT.fmtX(C.burnIndex);
-  $("kBiS").textContent = C.burnIndex == null ? "needs % complete above 0" : `${pc(C.usedPct)} used at ${pc(P.complete)} complete`;
+  $("kBiS").textContent = C.burnIndex == null ? "needs % complete above 0" : `${pc(C.usedPct)} used, ${pc(P.complete)} of work done · 1.00× = same pace`;
   $("kCv").textContent = short(r.contractNow);
   $("kCvS").textContent = r.CL.revAppr ? `+${short(r.CL.revAppr)} approved client changes` : "no approved client changes";
 
@@ -614,7 +614,7 @@ function summaryParts() {
   if (C.projectedAtCompletion != null && C.projectedAtCompletion < 0 && C.runOutAt != null)
     pts.push(`If contingency keeps being used at today's rate, it would run out at about ${pc(C.runOutAt)} complete – a shortfall of about ${money(-C.projectedAtCompletion)} at completion (simple straight-line projection).`);
   if (CL.nAppr || CL.nPend) pts.push(`Client change orders: ${CL.nAppr} approved, adding ${money(CL.revAppr)} to the contract (now ${money(r.contractNow)})` +
-    (CL.revAppr ? ` with a margin of ${money(CL.marginAppr)} (${pc(CL.marginApprPct)})` : "") + `.` +
+    (CL.revAppr ? ` with a profit of ${money(CL.marginAppr)} (${pc(CL.marginApprPct)})` : "") + `.` +
     (CL.nPend ? ` ${CL.nPend} more worth ${money(CL.revPend)} are waiting for the client.` : ""));
   if (P.reserve) pts.push(`Management reserve: ${money(r.MR.used)} used, ${money(r.MR.remaining)} left.`);
   if (r.SCH.appr || r.SCH.pend) pts.push(`Schedule: approved changes carry ${nf0.format(r.SCH.appr)} days of claimed delay, pending ones ${nf0.format(r.SCH.pend)} days (simple sum, not a critical-path analysis).`);
@@ -645,18 +645,18 @@ function renderContingency() {
   $("cLegend").innerHTML = `<span><i style="background:var(--navy)"></i>Used ${pc(C.usedPct)}</span><span><i style="background:var(--pend)"></i>Likely pending ${pc(C.pendW / B)}</span><span><i style="background:var(--left)"></i>Left ${pc(left / B)}</span>` + (over ? `<span><i style="background:var(--fail)"></i>Over budget ${short(over)}</span>` : "");
   const row = (a, b, hint, cls) => `<tr class="${cls || ""}"><td>${a}${hint ? `<span class="hint">${hint}</span>` : ""}</td><td class="r mono${/−/.test(b) ? " neg" : ""}">${b}</td></tr>`;
   let h = row("Contingency budget", money(B)) +
-    row("Approved drawdowns", money(-C.used), `${C.nAppr} approved change${C.nAppr === 1 ? "" : "s"}`) +
+    row("Used by approved changes", money(-C.used), `${C.nAppr} approved change${C.nAppr === 1 ? "" : "s"}`) +
     row("Left today", money(C.remaining), "", "tot") +
-    row("Pending (likely)", money(-C.pendW), `${C.nPend} pending · ${money(C.pendFull)} if all approved`) +
-    row("Left after likely pending", money(C.forecast), `${money(C.forecastFull)} if all pending are approved`, "tot");
-  if (C.projectedAtCompletion != null) h += row("If today's rate continues", money(C.projectedAtCompletion), C.projectedAtCompletion < 0 && C.runOutAt != null ? `left at completion · would run out at ~${pc(C.runOutAt)} complete` : "left at completion (straight line)");
+    row("Pending changes (likely cost)", money(-C.pendW), `${C.nPend} pending · cost × likelihood · ${money(C.pendFull)} if all are approved`) +
+    row("Left after pending changes", money(C.forecast), `${money(C.forecastFull)} if all pending changes are approved`, "tot");
+  if (C.projectedAtCompletion != null) h += row("Left at the end if spending continues at today's pace", money(C.projectedAtCompletion), C.projectedAtCompletion < 0 && C.runOutAt != null ? `left at completion · would run out at ~${pc(C.runOutAt)} complete` : "left at completion (straight line)");
   $("cTable").innerHTML = h;
 }
 
 function renderChart() {
   const r = result, P = r.P, C = r.C, tl = r.timeline;
   const W = 520, H = 230, L = 58, R = 14, T = 14, Bm = 30;
-  if (!tl.length) { $("chart").innerHTML = `<div class="cd" style="padding:30px 0">No approved contingency drawdowns with a Date Decided yet.</div>`; $("chartNote").textContent = ""; return; }
+  if (!tl.length) { $("chart").innerHTML = `<div class="cd" style="padding:30px 0">No approved contingency changes with a decision date yet.</div>`; $("chartNote").textContent = ""; return; }
   const dates = [tl[0].t, P.dataDate];
   r.items.forEach(i => { if (i.raised != null) dates.push(i.raised); });
   let t0 = Math.min(...dates), t1 = Math.max(P.dataDate, tl[tl.length - 1].t);
@@ -685,7 +685,7 @@ function renderChart() {
     <path d="${path}" fill="none" stroke="#1f3864" stroke-width="2.2"/>${dots}
     <circle cx="${X(P.dataDate)}" cy="${Y(exp)}" r="5" fill="#fff" stroke="#1e8a5a" stroke-width="2"><title>In line with progress: ${money(exp)}</title></circle>
   </svg>`;
-  $("chartNote").innerHTML = `Green circle = use in line with progress at the data date (${pc(P.complete)} of budget = ${money(exp)}). Actual: ${money(C.used)}.` + (r.timelineNoDate ? ` ${r.timelineNoDate} approved drawdown(s) without Date Decided are not shown in the chart but are counted in the totals.` : "");
+  $("chartNote").innerHTML = `Green circle = what would be used if spending followed progress (${pc(P.complete)} of budget = ${money(exp)}). Actually used: ${money(C.used)}.` + (r.timelineNoDate ? ` ${r.timelineNoDate} approved drawdown(s) without Date Decided are not shown in the chart but are counted in the totals.` : "");
 }
 
 function renderClient() {
@@ -694,20 +694,20 @@ function renderClient() {
   $("clTable").innerHTML = row("Original contract value", money(P.contract)) +
     row("Approved client changes", money(CL.revAppr), `${CL.nAppr} approved · cost ${money(CL.costAppr)}`) +
     row("Contract value now", money(r.contractNow), "", "tot") +
-    row("Margin on approved changes", money(CL.marginAppr), CL.marginApprPct == null ? "" : pc(CL.marginApprPct, 1) + " of client price") +
+    row("Profit on approved client changes", money(CL.marginAppr), CL.marginApprPct == null ? "" : pc(CL.marginApprPct, 1) + " of client price") +
     row("Pending client changes", money(CL.revPend), `${CL.nPend} pending · ${money(CL.revPendW)} likely · cost ${money(CL.costPend)}`);
   $("mrTable").innerHTML = (P.reserve || r.MR.nAppr || r.MR.nPend ?
-    row("Management reserve", money(P.reserve)) + row("Approved drawdowns", money(-r.MR.used), `${r.MR.nAppr} approved`) + row("Left today", money(r.MR.remaining), "", "tot") + (r.MR.nPend ? row("Left after likely pending", money(r.MR.forecast), `${r.MR.nPend} pending`) : "")
+    row("Management reserve", money(P.reserve)) + row("Used by approved changes", money(-r.MR.used), `${r.MR.nAppr} approved`) + row("Left today", money(r.MR.remaining), "", "tot") + (r.MR.nPend ? row("Left after pending changes", money(r.MR.forecast), `${r.MR.nPend} pending`) : "")
     : row("Management reserve", "not used", "no reserve in the file")) +
-    row("Schedule impact – approved", nf0.format(r.SCH.appr) + " days", "simple sum, not critical path", "tot") +
-    row("Schedule impact – pending", nf0.format(r.SCH.pend) + " days");
+    row("Delay from approved changes", nf0.format(r.SCH.appr) + " days", "days added up – not a critical-path analysis", "tot") +
+    row("Delay from pending changes", nf0.format(r.SCH.pend) + " days");
 }
 
 function renderDecisions() {
   const r = result, P = r.P, d = r.decisions;
-  $("decSub").textContent = `pending longer than ${P.ageDays} days at the data date`;
+  $("decSub").textContent = `waiting for a decision for more than ${P.ageDays} days`;
   if (!d.length) { $("decBody").innerHTML = `<div class="empty">✓ No pending change is older than ${P.ageDays} days.</div>` + (r.pendNoDate ? `<div class="cd">${r.pendNoDate} pending change(s) have no Date Raised and cannot be aged.</div>` : ""); return; }
-  $("decBody").innerHTML = `<table><thead><tr><th>ID</th><th>Description</th><th>Funding</th><th class="r">Age</th><th class="r">Cost impact</th><th class="r">Likelihood</th></tr></thead><tbody>` +
+  $("decBody").innerHTML = `<table><thead><tr><th>ID</th><th>Description</th><th>Paid from</th><th class="r">Days pending</th><th class="r">Cost impact</th><th class="r">Likelihood</th></tr></thead><tbody>` +
     d.map(i => `<tr><td class="id">${esc(i.id)}</td><td>${esc(i.desc)}${i.owner ? `<div class="cd">${esc(i.owner)}</div>` : ""}</td><td>${i.funding}</td><td class="r mono">${i.ageDays} days</td><td class="r mono">${money(i.cost)}</td><td class="r mono">${pc(i.lik)}${i.likSet ? "" : '<div class="flag">not assessed</div>'}</td></tr>`).join("") +
     `</tbody></table>` + (r.pendNoDate ? `<div class="cd" style="margin-top:6px">${r.pendNoDate} pending change(s) have no Date Raised and cannot be aged.</div>` : "");
 }
