@@ -26,7 +26,7 @@ A free browser tool for project controllers and project managers. Upload your ch
 🔒 Your file is read in your browser only. The sample project is fictional.
 
 ## What's new
-**Version 1.0 – 21 Nov 2026**
+**Version 1.0 – 24 Nov 2026**
 - First release.
 
 ## Use the online version
