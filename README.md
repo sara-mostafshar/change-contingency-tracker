@@ -11,8 +11,15 @@ A free browser tool for project controllers and project managers. Upload your ch
 - Pending changes that have waited too long for a decision
 - A plain-English summary for management (copy it or print/save as PDF)
 
+## The question it answers
+We have a contingency budget – **how much of it is left, is it running out faster than the work, and which changes need a decision now?**
+
+**The problem it solves:** changes and claims sit in different places – the ERP, emails, Excel files – so nobody sees in time that contingency is running out. This tool puts them on one page and warns you early.
+
+**How it fits with Monte Carlo:** the [Monte Carlo Risk Analysis](https://sara-mostafshar.github.io/monte-carlo-risk-analysis/) tool tells you *how much contingency you need* before you start. This tracker tells you *how much is left* while the project runs. Plan with one, control with the other.
+
 ## How to use
-1. Open the link and click **Try the sample project**, or download the sample Excel template.
+1. Open the link and click **Try the sample project**, or download the sample Excel template (start with its **Start here** sheet).
 2. Fill in the sheets `Project` (budget, contingency, % complete) and `Changes` (one row per change).
 3. Drop the file on the page.
 
